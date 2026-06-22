@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<!-- 加入 manifest 連結 -->
+<link rel="manifest" href="manifest.json">
+
+<!-- 設定 iOS 加入主畫面時的樣式 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="國泰計算機">
+
+<meta charset="UTF-8">
+<!-- 優化手機操作：鎖定縮放 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>國泰證券計算機</title>
+<style>
+body {
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+background-color: #f4f6f8;
+margin: 0;
+padding: 15px;
+color: #333;
+-webkit-tap-highlight-color: transparent;
+}
+.container {
+max-width: 400px;
+margin: 0 auto;
+background: #fff;
+padding: 20px;
+border-radius: 16px;
+box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+h2 { text-align: center; color: #00a651; margin-bottom: 20px; font-size: 20px; }
+.form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+select, input {
+width: 100%;
+padding: 12px;
+border: 1px solid #ccc;
+border-radius: 8px;
+font-size: 16px;
+box-sizing: border-box;
+-webkit-appearance: none;
+}
+button {
+width: 100%;
+padding: 15px;
+background-color: #00a651;
+color: white;
+border: none;
+border-radius: 8px;
+font-size: 16px;
+font-weight: bold;
+margin-top: 10px;
+}
+.result-box {
+margin-top: 20px;
+padding: 15px;
+background-color: #f0fdf4;
+border-radius: 8px;
+display: none;
+}
+.result-item { display: flex; justify-content: space-between; margin-bottom: 10px; }
+.result-total {
+border-top: 1px solid #ccc;
+padding-top: 10px;
+margin-top: 10px;
+font-weight: bold;
+font-size: 18px;
+display: flex;
+justify-content: space-between;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h2>國泰證券計算機</h2>
+
+<div class="form-group">
+<label>市場</label>
+<select id="market" onchange="updateUI()">
+<option value="TW">🇹🇼 台股</option>
+<option value="US">🇺🇸 美股</option>
+</select>
+</div>
+
+<div class="form-group">
+<label>標的類型</label>
+<select id="assetType">
+<option value="stock">一般個股</option>
+<option value="etf">ETF</option>
+</select>
+</div>
+
+<div class="form-group">
+<label>交易方式</label>
+<select id="tradeMethod">
+<option value="single">單筆交易</option>
+<option value="regular">定期定額</option>
+</select>
+</div>
+
+<div class="form-group">
+<label>買賣方向</label>
+<select id="action">
+<option value="buy">買進 (計算實付)</option>
+<option value="sell">賣出 (計算實領)</option>
+</select>
+</div>
+
+<div class="form-group">
+<label>成交股價</label>
+<input type="number" id="price" placeholder="請輸入股價" inputmode="decimal">
+</div>
+
+<div class="form-group">
+<label>成交股數</label>
+<input type="number" id="shares" placeholder="請輸入股數" inputmode="numeric">
+</div>
+
+<button onclick="calculate()">立即計算</button>
+
+<div class="result-box" id="resultBox">
+<div class="result-item"><span>成交總金額：</span><span id="resAmount">0</span></div>
+<div class="result-item"><span>券商手續費：</span><span id="resFee">0</span></div>
+<div class="result-item" id="taxRow"><span>稅費(含SEC)：</span><span id="resTax">0</span></div>
+<div class="result-total"><span id="resFinalLabel">總金額：</span><span id="resFinal">0</span></div>
+<div style="font-size: 11px; color: #666; margin-top: 10px; text-align: center;" id="currencyNote">幣別：新台幣</div>
+</div>
+</div>
+
+<script>
+function updateUI() {
+const market = document.getElementById("market").value;
+document.getElementById("currencyNote").innerText = market === "TW" ? "幣別：新台幣 (NTD) | 國泰電子下單2.8折" : "幣別：美元 (USD)";
+}
+
+function calculate() {
+const market = document.getElementById("market").value;
+const isETF = document.getElementById("assetType").value === "etf";
+const isRegular = document.getElementById("tradeMethod").value === "regular";
+const isBuy = document.getElementById("action").value === "buy";
+const price = parseFloat(document.getElementById("price").value);
+const shares = parseFloat(document.getElementById("shares").value);
+
+if (!price | | !shares) return alert("請輸入正確數值");
+
+const amount = price * shares;
+let fee = 0, tax = 0;
+
+if (market === "TW") {
+fee = (isRegular && isBuy) ? 1 : Math.max(1, Math.round(amount * 0.001425 * 0.28));
+if (!isBuy) tax = Math.round(amount * (isETF ? 0.001 : 0.003));
+} else {
+fee = (isRegular && isBuy) ? 0.1 : (isETF ? 3.0 : amount * 0.0008);
+if (!isBuy) tax = Math.max(0.01, amount * 0.0000206);
+}
+
+const final = isBuy ? (amount + fee + tax) : (amount - fee - tax);
+
+document.getElementById("resAmount").innerText = amount.toLocaleString();
+document.getElementById("resFee").innerText = fee.toFixed(2);
+document.getElementById("resTax").innerText = tax.toFixed(2);
+document.getElementById("resFinalLabel").innerText = isBuy ? "應扣實付：" : "入帳實領：";
+document.getElementById("resFinal").innerText = final.toFixed(2);
+document.getElementById("resultBox").style.display = "block";
+}
+</script>
+</body>
+</html>
